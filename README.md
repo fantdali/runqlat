@@ -1,5 +1,11 @@
 # runqlat
 
+Example showing how to continuously track specific processes (e.g., those belonging to target containers) and obtain their run queue latencies. This can be extended by periodically fetching the latency histograms to compute statistics and export them as metrics.
+
+## CO-RE (Compile Once - Run Everywhere)
+
+At the moment, the combination of Aya and rustc does not fully support CO-RE [aya/issues/349](https://github.com/aya-rs/aya/issues/349). Therefore, when generating bindings with aya-tool, you must use the `/sys/kernel/btf/vmlinux` file from a kernel of the same version as the one where the eBPF program will run.
+
 ## Prerequisites
 
 1. stable rust toolchains: `rustup toolchain install stable`
@@ -29,6 +35,7 @@ CC=${ARCH}-linux-musl-gcc cargo build --package runqlat --release \
   --target=${ARCH}-unknown-linux-musl \
   --config=target.${ARCH}-unknown-linux-musl.linker=\"${ARCH}-linux-musl-gcc\"
 ```
+
 The cross-compiled program `target/${ARCH}-unknown-linux-musl/release/runqlat` can be
 copied to a Linux server or VM and run there.
 

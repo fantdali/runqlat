@@ -1,7 +1,8 @@
-use aya::{Btf, maps::HashMap, programs::BtfTracePoint};
 #[rustfmt::skip]
-use log::{debug, warn};
+use log::debug;
 use tokio::signal;
+
+mod profiler;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -18,44 +19,15 @@ async fn main() -> anyhow::Result<()> {
         debug!("remove limit on locked memory failed, ret is: {ret}");
     }
 
-    // This will include your eBPF object file as raw bytes at compile-time and load it at
-    // runtime. This approach is recommended for most real-world use cases. If you would
-    // like to specify the eBPF program at runtime rather than at compile-time, you can
-    // reach for `Bpf::load_file` instead.
-    let mut ebpf = aya::Ebpf::load(aya::include_bytes_aligned!(concat!(
-        env!("OUT_DIR"),
-        "/runqlat"
-    )))?;
-    match aya_log::EbpfLogger::init(&mut ebpf) {
-        Err(e) => {
-            // This can happen if you remove all log statements from your eBPF program.
-            warn!("failed to initialize eBPF logger: {e}");
-        }
-        Ok(logger) => {
-            let mut logger =
-                tokio::io::unix::AsyncFd::with_interest(logger, tokio::io::Interest::READABLE)?;
-            tokio::task::spawn(async move {
-                loop {
-                    let mut guard = logger.readable_mut().await.unwrap();
-                    guard.get_inner_mut().flush();
-                    guard.clear_ready();
-                }
-            });
-        }
-    }
+    // Initialize the eBPF profiler
+    let mut _profiler = profiler::Profiler::try_new()?;
 
-    let mut pids: HashMap<_, u32, u8> = HashMap::try_from(ebpf.map_mut("PIDS").unwrap())?;
-    pids.insert(1, 0, 0)?;
+    // Need additional logic here to populate PID map in eBPF program.
+    // For example, track all processes of certain containers or users.
 
-    for tp in ["sched_wakeup", "sched_wakeup_new", "sched_switch"] {
-        // let prog: &mut BtfTracePoint = ebpf.program_mut(name).unwrap().try_into()?;
-        // prog.load()?;
-        // prog.attach(event)?;
-        let btf = Btf::from_sys_fs()?;
-        let program: &mut BtfTracePoint = ebpf.program_mut(tp).unwrap().try_into()?;
-        program.load(tp, &btf)?;
-        program.attach()?;
-    }
+    // Periodically read histograms from eBPF maps.
+    // Use these histograms as needed, e.g. export as metrics.
+    let _histograms = _profiler.histograms();
 
     let ctrl_c = signal::ctrl_c();
     println!("Waiting for Ctrl-C...");
