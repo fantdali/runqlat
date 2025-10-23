@@ -1,10 +1,12 @@
 # runqlat
 
-Example showing how to continuously track specific processes (e.g., those belonging to target containers) and obtain their run queue latencies. This can be extended by periodically fetching the latency histograms to compute statistics and export them as metrics.
+Example showing how to continuously track specific processes (e.g., those belonging to target containers) and obtain their run queue latencies.
+
+Inspired by the C version of runqlat described in [Eunomia's tutorial](https://eunomia.dev/en/tutorials/9-runqlat/). This implementation is written in Rust and [Aya](https://aya-rs.dev/) and extended for continuous profiling of selected processes. For example, it can be extended to retrieve all containers from containerd, collect their PIDs, periodically update the tracked PIDs in the eBPF program, and periodically fetch latency statistics for metric export.
 
 ## CO-RE (Compile Once - Run Everywhere)
 
-At the moment, the combination of Aya and rustc does not fully support CO-RE [aya/issues/349](https://github.com/aya-rs/aya/issues/349). Therefore, when generating bindings with aya-tool, you must use the `/sys/kernel/btf/vmlinux` file from a kernel of the same version as the one where the eBPF program will run.
+At the moment, the combination of Aya and rustc does not fully support CO-RE [aya/issues/349](https://github.com/aya-rs/aya/issues/349). Therefore, when generating bindings with aya-tool, you must use the `/sys/kernel/btf/vmlinux` file from a kernel of the **same version** as the one where the eBPF program will run. Otherwise, the fields in the generated task_struct may not align correctly with those on a different kernel.
 
 ## Prerequisites
 
