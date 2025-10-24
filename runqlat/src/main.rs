@@ -2,8 +2,6 @@
 use log::debug;
 use tokio::signal;
 
-mod profiler;
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
@@ -20,14 +18,15 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Initialize the eBPF profiler
-    let mut _profiler = profiler::Profiler::try_new()?;
+    let mut profiler = runqlat::Profiler::try_new()?;
 
     // Need additional logic here to populate PID map in eBPF program.
     // For example, track all processes of certain containers or users.
+    profiler.insert_pids(&[std::process::id()])?;
 
     // Periodically read histograms from eBPF maps.
     // Use these histograms as needed, e.g. export as metrics.
-    let _histograms = _profiler.histograms();
+    let _histograms = profiler.drain_histograms();
 
     let ctrl_c = signal::ctrl_c();
     println!("Waiting for Ctrl-C...");

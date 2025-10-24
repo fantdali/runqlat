@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-
 use anyhow::{Context, anyhow};
 use aya::programs::RawTracePoint;
 use log::warn;
 use runqlat_common::Histogram;
+use std::collections::HashMap;
 
 pub struct Profiler {
     pub ebpf: aya::Ebpf,
@@ -46,24 +45,60 @@ impl Profiler {
         Ok(Self { ebpf })
     }
 
-    pub fn histograms(&mut self) -> anyhow::Result<HashMap<u32, Histogram>> {
-        let map = self
+    pub fn drain_histograms(&mut self) -> anyhow::Result<HashMap<u32, Histogram>> {
+        let hist_map = self
             .ebpf
             .map_mut("HIST")
             .ok_or_else(|| anyhow!("HIST map not found"))?;
 
-        let mut hist: aya::maps::HashMap<_, u32, Histogram> =
-            aya::maps::HashMap::try_from(map).context("invalid HIST map")?;
+        let mut hist_map: aya::maps::HashMap<_, u32, Histogram> =
+            aya::maps::HashMap::try_from(hist_map).context("invalid HIST map")?;
 
-        let out: HashMap<u32, Histogram> = hist
+        let out: HashMap<u32, Histogram> = hist_map
             .iter()
             .collect::<Result<_, _>>()
             .context("failed to read HIST entries")?;
 
         for (pid, _) in &out {
-            let _ = hist.remove(pid);
+            let _ = hist_map.remove(pid);
         }
 
         Ok(out)
+    }
+
+    pub fn insert_pids(&mut self, pids: &[u32]) -> anyhow::Result<()> {
+        let pid_map = self
+            .ebpf
+            .map_mut("PID")
+            .ok_or_else(|| anyhow!("PID map not found"))?;
+
+        let mut pid_map: aya::maps::HashMap<_, u32, u8> =
+            aya::maps::HashMap::try_from(pid_map).context("invalid PID map")?;
+
+        for pid in pids {
+            pid_map
+                .insert(pid, 0, 0)
+                .context("failed to insert pid into PID map")?;
+        }
+
+        Ok(())
+    }
+
+    pub fn remove_pids(&mut self, pids: &[u32]) -> anyhow::Result<()> {
+        let pid_map = self
+            .ebpf
+            .map_mut("PID")
+            .ok_or_else(|| anyhow!("PID map not found"))?;
+
+        let mut pid_map: aya::maps::HashMap<_, u32, u8> =
+            aya::maps::HashMap::try_from(pid_map).context("invalid PID map")?;
+
+        for pid in pids {
+            pid_map
+                .remove(pid)
+                .context("failed to insert pid into PID map")?;
+        }
+
+        Ok(())
     }
 }
